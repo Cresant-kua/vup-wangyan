@@ -171,6 +171,8 @@
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.08);
     transition: all 0.3s;
+    cursor: pointer;
+    font-family: inherit;
   }
   
   .btn:hover {
@@ -207,6 +209,52 @@
     transform: scale(1.03) translateY(-4px);
     box-shadow: 0 12px 32px rgba(0,0,0,0.4);
     border-color: rgba(94,234,212,0.2);
+  }
+  
+  /* ====== 今天吃什么 ====== */
+  .dish-box {
+    text-align: center;
+    padding: 6px 0 4px;
+  }
+  
+  .dish-result {
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 8px 0 22px;
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed rgba(94,234,212,0.2);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  
+  .dish-name {
+    font-size: 2.1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #5eead4, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: dishPop 0.4s ease;
+  }
+  
+  @keyframes dishPop {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  
+  .dish-tag {
+    color: #64748b;
+    font-size: 0.88rem;
+  }
+  
+  .dish-hint {
+    color: #64748b;
+    font-size: 0.95rem;
+    margin: 0;
   }
   
   /* ====== 游戏展示区 ====== */
@@ -312,6 +360,7 @@
     .links { justify-content: center; }
     .game-grid { grid-template-columns: 1fr; }
     .resource-item { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .dish-name { font-size: 1.6rem; }
   }
 </style>
 </head>
@@ -366,6 +415,19 @@
     <p><strong style="color:#5eead4;">固定直播：</strong>每周工作日 晚上 21：30以后</p>
     <p><strong style="color:#5eead4;">突击直播：</strong>随缘，请关注B站动态通知</p>
     <p style="margin-top:10px; color:#64748b; font-size:0.9rem;">* 具体时间以当天动态为准</p>
+  </section>
+
+  <!-- ====== 今天吃什么 ====== -->
+  <section class="card">
+    <h2>🍲 今天吃什么</h2>
+    <p style="color:#94a3b8;">选择困难症救星！让山谷的梧桐树替你决定今天的一餐～</p>
+    
+    <div class="dish-box">
+      <div class="dish-result" id="dishResult">
+        <p class="dish-hint">点击下方按钮，抽取今日份的美味 ✨</p>
+      </div>
+      <button class="btn" id="dishBtn" onclick="drawDish()">🎲 帮我决定！</button>
+    </div>
   </section>
 
   <!-- ====== 小游戏展示区 ====== -->
@@ -459,6 +521,76 @@
   <p>Made with 🩵 by 粉丝自制 | 本站为粉丝作品，与主播官方无关</p>
   <p style="margin-top:8px;">© 2026 忘言应援站</p>
 </footer>
+
+<!-- ====== 今天吃什么 · 抽选逻辑 ====== -->
+<script>
+  // 【改这里】菜品池：name 是菜名，tag 是菜名下的小字，随意增删
+  const dishes = [
+    { name: "黄焖鸡米饭", tag: "🍚 下饭神器，永远不会出错" },
+    { name: "麻辣烫", tag: "🌶️ 想吃什么自己夹" },
+    { name: "螺蛳粉", tag: "🍜 闻着上头，吃着真香" },
+    { name: "兰州牛肉面", tag: "🐂 一清二白三红四绿" },
+    { name: "沙县小吃", tag: "🥟 国民食堂，便宜管饱" },
+    { name: "麻辣香锅", tag: "🔥 干饭人的快乐源泉" },
+    { name: "酸菜鱼", tag: "🐟 酸爽开胃，汤都喝光" },
+    { name: "煲仔饭", tag: "🍚 锅巴是灵魂" },
+    { name: "日式拉面", tag: "🍥 来一碗热气腾腾" },
+    { name: "寿司", tag: "🍣 今天吃精致一点" },
+    { name: "韩式炸鸡", tag: "🍗 配可乐，快乐翻倍" },
+    { name: "石锅拌饭", tag: "🥘 拌一拌更香" },
+    { name: "烤肉", tag: "🥩 大口吃肉的一天" },
+    { name: "火锅", tag: "🫕 没有什么是一顿火锅解决不了的" },
+    { name: "烧烤", tag: "🍢 夜宵界的王者" },
+    { name: "披萨", tag: "🍕 芝士就是力量" },
+    { name: "汉堡薯条", tag: "🍔 简单粗暴的快乐" },
+    { name: "咖喱饭", tag: "🍛 浓郁治愈系" },
+    { name: "蛋炒饭", tag: "🍳 朴素但温暖" },
+    { name: "饺子", tag: "🥟 好吃不过饺子" },
+    { name: "馄饨", tag: "🥣 汤鲜味美，暖心暖胃" },
+    { name: "煎饼果子", tag: "🫓 加两个蛋，豪华配置" },
+    { name: "肉夹馍", tag: "🥙 肥瘦相间，馍脆肉香" },
+    { name: "凉皮", tag: "🌿 清爽开胃" },
+    { name: "过桥米线", tag: "🍲 仪式感拉满" },
+    { name: "重庆小面", tag: "🌶️ 麻辣鲜香一碗面" },
+    { name: "肠粉", tag: "🥢 滑嫩可口" },
+    { name: "盖浇饭", tag: "🍛 菜饭一体，省事管饱" },
+    { name: "轻食沙拉", tag: "🥗 今天做个健康人" },
+    { name: "粥配小菜", tag: "🥣 清淡养胃的一天" },
+    { name: "炸鸡排", tag: "🍗 酥脆多汁，罪恶但快乐" },
+    { name: "烤鱼", tag: "🐟 香辣入味，越吃越上头" },
+    { name: "铁板炒饭", tag: "🍳 滋滋作响的香气" },
+    { name: "关东煮", tag: "🍢 便利店的温柔" },
+    { name: "卤肉饭", tag: "🍚 酱汁拌饭，一绝" },
+    { name: "冒菜", tag: "🌶️ 一个人的火锅" },
+    { name: "梧桐叶茶配记忆团子", tag: "🌳 山谷限定 · 妖怪们的下午茶" },
+    { name: "妖怪客人的手作便当", tag: "🍱 山谷限定 · 据说是用回忆做的" }
+  ];
+
+  let lastDishIndex = -1;
+
+  function drawDish() {
+    // 避免连续两次抽到同一道菜
+    let index;
+    do {
+      index = Math.floor(Math.random() * dishes.length);
+    } while (dishes.length > 1 && index === lastDishIndex);
+    lastDishIndex = index;
+
+    const dish = dishes[index];
+    const resultBox = document.getElementById("dishResult");
+    resultBox.innerHTML =
+      '<div class="dish-name">' + dish.name + '</div>' +
+      '<div class="dish-tag">' + dish.tag + '</div>';
+
+    // 重新触发弹出动画
+    const nameEl = resultBox.querySelector(".dish-name");
+    nameEl.style.animation = "none";
+    void nameEl.offsetHeight;
+    nameEl.style.animation = "";
+
+    document.getElementById("dishBtn").textContent = "🔄 不满意？再抽一次";
+  }
+</script>
 
 </body>
 </html>
